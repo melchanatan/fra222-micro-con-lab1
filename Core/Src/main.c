@@ -48,7 +48,10 @@ UART_HandleTypeDef hlpuart1;
 TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
+long unsigned int ADCChannels = 3;
+long unsigned int ADCSamples = 100;
 uint16_t ADCBuffer[300];
+uint32_t channelAverages[3];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -109,7 +112,14 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-
+	  HAL_Delay(1000);
+	  uint64_t channelSums[3] = {0};
+	  for (int i=0; i< ADCChannels; i++) {
+		  for (int j=0; j < ADCSamples; j++) {
+			  channelSums[i] += ADCBuffer[i+j*ADCChannels];
+		  }
+		  channelAverages[i] = channelSums[i] / ADCSamples;
+	  }
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
