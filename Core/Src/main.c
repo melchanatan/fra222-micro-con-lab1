@@ -46,6 +46,8 @@ TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
 uint32_t timer2Counter = 0;
+uint32_t interruptCounter = 0;
+uint64_t realtime = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -100,10 +102,11 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	timer2Counter = __HAL_TIM_GET_COUNTER(&htim2);
+	realtime = timer2Counter + interruptCounter * 32-1;
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	timer2Counter = __HAL_TIM_GET_COUNTER(&htim2);
   }
   /* USER CODE END 3 */
 }
@@ -288,7 +291,13 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+	if(htim == &htim2)
+	{
+		interruptCounter = interruptCounter + 1;
+	}
+}
 /* USER CODE END 4 */
 
 /**
