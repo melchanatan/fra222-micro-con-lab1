@@ -50,6 +50,9 @@ TIM_HandleTypeDef htim3;
 /* USER CODE BEGIN PV */
 int x = 0;
 uint16_t ADC_RawRead[40]={0};
+uint8_t state = 0;
+uint16_t servoPulse = 0;
+float pimpod1Percentage;
 
 /* USER CODE END PV */
 
@@ -117,6 +120,39 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+
+	  // state management with pimpod 1
+	  pimpod1Percentage = (float) ADC_RawRead[0] / 4095 * 100;
+	  uint16_t pimpod2 = ADC_RawRead[1];
+	  uint16_t pimpod3 = ADC_RawRead[2];
+
+	  if (pimpod1Percentage > 75) {
+		  state = (int) 4;
+	  } else if (pimpod1Percentage > 50) {
+		  state = (int) 3;
+	  } else if (pimpod1Percentage > 25) {
+		  state = (int) 2;
+	  } else {
+		  state = (int) 1;
+	  }
+
+//	  switch (state) {
+//	  case 1: servoPulse = 500;
+//	  case 2: servoPulse = pimpod2 / 4095 * 2000 + 500;
+//	  case 3: servoPulse = pimpod3 / 4095 * 2000 + 500;
+//	  case 4: servoPulse = 2500;
+//	  }
+	  if (state == 1) {
+		  servoPulse = 500;
+	  } else if (state == 2) {
+		  servoPulse = (float) pimpod2 / 4095 * 2000 + 500;
+	  } else if (state == 3) {
+		  servoPulse = (float) pimpod3 / 4095 * 2000 + 500;
+	  } else if (state == 4) {
+		  servoPulse = 2500;
+	  }
+
+	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, servoPulse);
 
   }
   /* USER CODE END 3 */
