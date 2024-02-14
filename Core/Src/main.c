@@ -41,44 +41,22 @@
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
+DMA_HandleTypeDef hdma_adc1;
 
 UART_HandleTypeDef hlpuart1;
 
 TIM_HandleTypeDef htim3;
 
 /* USER CODE BEGIN PV */
-struct _ADC_tag
-{
-	ADC_ChannelConfTypeDef Config;
-	uint16_t data;
-};
+int x = 0;
+uint16_t ADC_RawRead[40]={0};
 
-struct _ADC_tag ADC1_Channel[2] =
-{
-	{
-		.Config.Channel = ADC_CHANNEL_1,
-		.Config.Rank = ADC_REGULAR_RANK_1,
-		.Config.SamplingTime = ADC_SAMPLETIME_640CYCLES_5,
-		.Config.SingleDiff = ADC_SINGLE_ENDED,
-		.Config.OffsetNumber = ADC_OFFSET_NONE,
-		.Config.Offset = 0,
-		.data = 0
-	},
-	{
-		.Config.Channel = ADC_CHANNEL_TEMPSENSOR_ADC1,
-		.Config.Rank = ADC_REGULAR_RANK_1,
-		.Config.SamplingTime = ADC_SAMPLETIME_640CYCLES_5,
-		.Config.SingleDiff = ADC_SINGLE_ENDED,
-		.Config.OffsetNumber = ADC_OFFSET_NONE,
-		.Config.Offset = 0,
-		.data = 0
-	}
-};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_LPUART1_UART_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_TIM3_Init(void);
@@ -119,6 +97,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_LPUART1_UART_Init();
   MX_ADC1_Init();
   MX_TIM3_Init();
@@ -127,6 +106,7 @@ int main(void)
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
 
   HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
+  HAL_ADC_Start_DMA(&hadc1, ADC_RawRead, 40);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -137,9 +117,6 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-
-	  ADC_Read_blocking();
-	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, ADC1_Channel[1].data);
 
   }
   /* USER CODE END 3 */
@@ -217,15 +194,15 @@ static void MX_ADC1_Init(void)
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc1.Init.GainCompensation = 0;
-  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+  hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   hadc1.Init.LowPowerAutoWait = DISABLE;
-  hadc1.Init.ContinuousConvMode = DISABLE;
-  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.ContinuousConvMode = ENABLE;
+  hadc1.Init.NbrOfConversion = 4;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.DMAContinuousRequests = ENABLE;
   hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
   hadc1.Init.OversamplingMode = DISABLE;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
@@ -245,10 +222,37 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_1;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_640CYCLES_5;
   sConfig.SingleDiff = ADC_SINGLE_ENDED;
   sConfig.OffsetNumber = ADC_OFFSET_NONE;
   sConfig.Offset = 0;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_2;
+  sConfig.Rank = ADC_REGULAR_RANK_2;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_15;
+  sConfig.Rank = ADC_REGULAR_RANK_3;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_5;
+  sConfig.Rank = ADC_REGULAR_RANK_4;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -365,6 +369,23 @@ static void MX_TIM3_Init(void)
 }
 
 /**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMAMUX1_CLK_ENABLE();
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Channel1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -406,21 +427,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void ADC_Read_blocking()
-{
-	static uint32_t TimeStamp = 0;
-	if( HAL_GetTick()<TimeStamp) return;
 
-	TimeStamp = HAL_GetTick()+500;
-	for(int i=0;i<1;i++)
-	{
-		HAL_ADC_ConfigChannel(&hadc1, &ADC1_Channel[i].Config);
-		HAL_ADC_Start(&hadc1);
-		HAL_ADC_PollForConversion(&hadc1, 100);
-		ADC1_Channel[i].data = HAL_ADC_GetValue(&hadc1);
-		HAL_ADC_Stop(&hadc1);
-	}
-}
 /* USER CODE END 4 */
 
 /**
